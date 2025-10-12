@@ -1,0 +1,76 @@
+name: Advanced Multi Random Uptime Ping
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # প্রতি 15 মিনিটে ট্রিগার
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Run advanced random ping script
+        run: |
+          echo "🔄 Starting advanced uptime pinger..."
+
+          # 🟢 আপনার Render ও Vercel backend URL গুলো
+          URLS="
+          https://batteryrechargehubbackend.onrender.com/api/vehicleTypes
+          https://battery-recharge-hub.vercel.app/api/vehicleTypes
+          "
+
+          # 🔹 Summary output file
+          SUMMARY_FILE="ping_summary.txt"
+          echo "🕒 Ping Summary (Run: $(date))" > $SUMMARY_FILE
+          echo "---------------------------------" >> $SUMMARY_FILE
+
+          # 🔸 প্রতিটি URL পিং করা
+          IFS=$'\n'
+          for URL in $URLS; do
+            DELAY=$(( ( RANDOM % 570 ) + 30 )) # random delay 30–600 sec
+            echo "⏳ [$URL] will ping after $DELAY seconds..."
+            (
+              sleep $DELAY
+              node -e "
+                const https = require('https');
+                const http = require('http');
+                const url = process.argv[1];
+                const lib = url.startsWith('https') ? https : http;
+
+                function ping(attempt = 1) {
+                  lib.get(url, res => {
+                    console.log('✅ Pinged', url, res.statusCode, 'at', new Date().toLocaleString());
+                    require('fs').appendFileSync('ping_summary.txt', '✅ ' + url + ' => ' + res.statusCode + ' (' + new Date().toLocaleString() + ')\\n');
+                  }).on('error', err => {
+                    console.error('❌ Error pinging', url, err.message);
+                    if (attempt < 2) {
+                      console.log('🔁 Retrying in 60 seconds...');
+                      setTimeout(() => ping(attempt + 1), 60000);
+                    } else {
+                      require('fs').appendFileSync('ping_summary.txt', '❌ ' + url + ' => FAILED after retry (' + err.message + ')\\n');
+                    }
+                  });
+                }
+
+                ping();
+              " "$URL"
+            ) &
+          done
+
+          wait
+          echo "---------------------------------" >> $SUMMARY_FILE
+          echo "✅ All pings completed at $(date)" >> $SUMMARY_FILE
+
+          echo "🧾 Ping Summary:"
+          cat $SUMMARY_FILE
+
+          # 🪄 GitHub summary তে সুন্দরভাবে দেখানোর জন্য
+          echo "### 🔍 Render & Vercel Ping Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat $SUMMARY_FILE >> $GITHUB_STEP_SUMMARY
