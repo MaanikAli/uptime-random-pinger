@@ -1,1 +1,84 @@
+name: Advanced Multi Random Uptime Ping
 
+on:
+  schedule:
+    - cron: "*/15 * * * *"  # প্রতি 15 মিনিটে চালু হবে
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Create and run ping script
+        run: |
+          echo "🔄 Starting advanced uptime pinger..."
+          cat <<'EOF' > ping.js
+          const fs = require('fs');
+          const https = require('https');
+          const http = require('http');
+
+          const urls = [
+            "https://batteryrechargehubbackend.onrender.com/api/vehicleTypes",
+            "https://battery-recharge-hub.vercel.app/api/vehicleTypes",
+            "https://canteenbc.vercel.app/api/menu"
+          ];
+
+          const summary = [];
+
+          function ping(url, attempt = 1) {
+            const lib = url.startsWith('https') ? https : http;
+            const req = lib.get(url, { timeout: 8000 }, res => {
+              console.log(`✅ [${res.statusCode}] ${url}`);
+              summary.push(`✅ ${url} => ${res.statusCode} (${new Date().toLocaleString()})`);
+              res.resume();
+            });
+
+            req.on('timeout', () => {
+              req.destroy();
+              console.error(`⏰ Timeout: ${url}`);
+              retry(url, attempt);
+            });
+
+            req.on('error', err => {
+              console.error(`❌ Error: ${url} (${err.message})`);
+              retry(url, attempt);
+            });
+          }
+
+          function retry(url, attempt) {
+            if (attempt < 3) {
+              console.log(`🔁 Retrying ${url} in 45s (Attempt ${attempt + 1})...`);
+              setTimeout(() => ping(url, attempt + 1), 45000);
+            } else {
+              summary.push(`❌ ${url} => FAILED after 3 attempts (${new Date().toLocaleString()})`);
+            }
+          }
+
+          (async () => {
+            for (const url of urls) {
+              const delay = Math.floor(Math.random() * 57000) + 30000;
+              console.log(`⏳ Waiting ${delay / 1000}s before pinging ${url}`);
+              await new Promise(r => setTimeout(r, delay));
+              ping(url);
+            }
+
+            setTimeout(() => {
+              fs.writeFileSync('ping_summary.txt', summary.join('\n'));
+              console.log("✅ All pings completed.");
+            }, 180000);
+          })();
+          EOF
+
+          node ping.js
+
+      - name: Show summary
+        run: |
+          echo "### 🔍 Render & Vercel Ping Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat ping_summary.txt >> $GITHUB_STEP_SUMMARY
