@@ -23,6 +23,7 @@ jobs:
           URLS="
           https://batteryrechargehubbackend.onrender.com/api/vehicleTypes
           https://battery-recharge-hub.vercel.app/api/vehicleTypes
+          https://canteenbc.vercel.app/api/menu
           "
 
           # 🔹 Summary output file
