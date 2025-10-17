@@ -27,6 +27,7 @@ jobs:
             "https://batteryrechargehubbackend.onrender.com/api/vehicleTypes",
             "https://battery-recharge-hub.vercel.app/api/vehicleTypes",
             "https://canteenbc.vercel.app/api/menu"
+             "https://canteendb-v6gg.onrender.com/api/menu"
           ];
 
           const summary = [];
